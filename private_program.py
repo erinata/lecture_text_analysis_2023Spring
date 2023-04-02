@@ -16,6 +16,9 @@ print(stopwords.words("english"))
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 
+import kfold_template
+
+import dill as pickle
 
 review_stars = []
 review_text = []
@@ -32,6 +35,7 @@ print(dataset.shape)
 
 dataset = dataset[0:3000]
 dataset = dataset[(dataset['stars']==1)|(dataset['stars']==3)|(dataset['stars']==5)]
+dataset.reset_index(drop=True, inplace=True)
 print(dataset.shape)
 
 
@@ -51,58 +55,32 @@ def pre_processing(text):
       result.append(word_processed)
   return result
   
-count_vectorize_tranformer = CountVectorizer(analyzer=pre_processing).fit(data)
+count_vectorize_transformer = CountVectorizer(analyzer=pre_processing).fit(data)
 
 data = count_vectorize_transformer.transform(data)
 
 print(data)
 
+machine = MultinomialNB()
+
+results = kfold_template.run_kfold(data, target, machine, 4, False, True, True)
+
+print([i[0] for i in results])
+print([i[1] for i in results])
+
+
 
 machine = MultinomialNB()
 machine.fit(data,target)
 
-
-
-
-
-
-new_reviews = pandas.read_csv("new_reviews.csv", header=None)
-new_reviews_transformed = count_vectorize_transformer.transform(new_reviews.iloc[:,0])
-
-prediction = machine.predict(new_reviews_transformed)
-prediction_prob = machine.predict_proba(new_reviews_transformed)
-
-print(prediction)
-print(prediction_prob)
-
-
-new_reviews['prediction'] = prediction
-prediction_prob_dataframe = pandas.DataFrame(prediction_prob)
-
-
-
-prediction_prob_dataframe = prediction_prob_dataframe.rename(columns={
-                prediction_prob_dataframe.columns[0]: "prediction_prob_1", 
-                prediction_prob_dataframe.columns[1]: "prediction_prob_3", 
-                prediction_prob_dataframe.columns[2]: "prediction_prob_5" })
-
-new_reviews = pandas.concat([new_reviews,prediction_prob_dataframe], axis=1)
-
-new_reviews = new_reviews.rename(columns={new_reviews.columns[0]: "text"})
-
-new_reviews['prediction'] = new_reviews['prediction'].astype(int)
-new_reviews['prediction_prob_1'] = round(new_reviews['prediction_prob_1'],5)
-new_reviews['prediction_prob_3'] = round(new_reviews['prediction_prob_3'],5)
-new_reviews['prediction_prob_5'] = round(new_reviews['prediction_prob_5'],5)
-
-new_reviews.to_csv("new_reviews_with_prediction.csv", index=False, float_format='%.5f')
-
-
-
-
-
-
-
+with open("machine.pickle", "wb")  as f:
+  pickle.dump(machine, f)
+  pickle.dump(count_vectorize_transformer, f)
+  pickle.dump(lemmatizer, f)
+  pickle.dump(stopwords, f)
+  pickle.dump(string, f)
+  pickle.dump(pre_processing, f)
+  
 
 
 
